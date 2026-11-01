@@ -1,0 +1,16 @@
+node_modules
+.next
+.env*
+!.env.example
+*.tsbuildinfo
+
+test-results
+playwright-report
+
+# Local hosting checkout, generated output, and QA artifacts
+sites/
+artifacts/
+out/
+dist/
+.openai/
+.DS_Store

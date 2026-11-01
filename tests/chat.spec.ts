@@ -1,0 +1,46 @@
+import { test, expect } from '@playwright/test';
+test('conversation, saved history, themes, search and delete', async ({ page }) => {
+ await page.goto('http://localhost:3000/preview/chat');
+ await expect(page.getByRole('heading', {name:'Where should we begin?'})).toBeVisible();
+ await page.screenshot({path:'artifacts/desktop.png',fullPage:true});
+ await page.getByRole('button',{name:'Theme settings'}).click();
+ await page.getByRole('button',{name:'dark',exact:true}).click();
+ await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+ await page.getByRole('button',{name:'All set'}).click();
+ await page.screenshot({path:'artifacts/dark.png',fullPage:true});
+ await page.getByRole('textbox',{name:'Message Orinize'}).fill('Help me plan a small project');
+ await page.getByRole('button',{name:'Send message'}).click();
+ await expect(page.getByRole('button',{name:'Regenerate'})).toBeVisible();
+ await expect(page.locator('.message.assistant')).toContainText('demo conversation');
+ await page.reload();
+ await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+ await page.getByRole('button',{name:'Help me plan a small project',exact:true}).click();
+ await expect(page.locator('.message.assistant')).toContainText('demo conversation');
+ await page.getByRole('button',{name:'Search chats'}).click();
+ await page.getByPlaceholder('Search your conversations…').fill('small project');
+ await expect(page.locator('.search-results button')).toHaveCount(1);
+ await page.keyboard.press('Escape');
+ await page.getByRole('button',{name:'Delete Help me plan a small project'}).click();
+ await expect(page.locator('.message')).toHaveCount(0);
+});
+test('mobile layout and retry',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('http://localhost:3000/preview/chat');
+ await page.screenshot({path:'artifacts/mobile.png',fullPage:true});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.getByRole('button',{name:'Open navigation'}).click();
+ await expect(page.getByRole('button',{name:'New chat'})).toBeVisible();
+ await page.getByRole('button',{name:'Close sidebar'}).click();
+ await page.route('**/api/chat',route=>route.request().method()==='POST'?route.fulfill({status:502,contentType:'application/json',body:JSON.stringify({error:'Service unavailable. Please retry.'})}):route.continue());
+ await page.getByRole('textbox',{name:'Message Orinize'}).fill('Test failure');
+ await page.getByRole('button',{name:'Send message'}).click();
+ await expect(page.locator('.notice[role=alert]')).toContainText('Service unavailable');
+ await page.unroute('**/api/chat');
+ await page.getByRole('button',{name:'Retry',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Regenerate'})).toBeVisible();
+ await page.screenshot({path:'artifacts/mobile-chat.png',fullPage:true});
+});
+test('API rejects invalid messages',async({request})=>{
+ const response=await request.post('http://localhost:3000/api/chat',{data:{messages:[{role:'system',content:'invalid'}]}});
+ expect(response.status()).toBe(400);
+});
